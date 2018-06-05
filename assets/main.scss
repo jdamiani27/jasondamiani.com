@@ -1,0 +1,36 @@
+---
+# Only the main Sass file needs front matter (the dashes are enough)
+---
+
+@import "minima";
+
+.wrapper {
+  max-width: 75%;
+}
+
+.dataframe-container {
+  overflow-x: auto;
+  font-size: 12px;
+}
+
+pre, code {
+  background-color: rgb(245, 245, 245);
+  border: none;
+}
+
+.highlighter-rouge .highlight {
+    background: rgb(245, 245, 245); }
+
+.language-python pre {
+  border: 2px solid #e8e8e8;
+  border-radius: 3px;
+}
+
+table {
+  table-layout: auto;
+  width: auto;
+}
+
+td {
+  white-space:nowrap;
+}

@@ -1,22 +1,41 @@
 ---
 layout: post
-title:  "NASCAR Cup Series Percent Laps Led by Winners"
-date:   2018-06-04 21:51:01 -0400
-categories: jekyll update
+title:  "Scraping Racing Reference for NASCAR Data"
+date:   2018-06-05 22:43:00 -0400
 ---
 
 
+[Racing Reference](http://racing-reference.info) is the comprehensive source for up-to-date historical NASCAR race results.  In addition, statistics are recorded by driver, owner, and crew chief, making for an awesome foundation of racing data analysis.
+
+Traditional stick and ball sports have seen their data and analytics movement, with a variety of tools to get data from authoritative sources into the hands of eager sports data geeks.  NASCAR and racing in general have seemingly been behind on this movement, lacking the open source foundations to unleash the potential of years of historical data in tools like Python and the PyData stack.
+
+I am planning to eventually develop a full fledged Python package to make it easier to retrieve structured NASCAR data with a few parameters.  This post covers an attempt to begin to bridge that gap by scraping modern era race results in the Monster Energy NASCAR Cup Series from Racing Reference.  
+
+## Making Requests
+To get started, we'll import the following four Python packages:
+* requests - makes our HTTP requests
+* BeautifulSoup - aids in parsing and searching HTML
+* re - the Python standard regex module; useful for finding strings and extracting data from those strings
+* pandas - the swiss army knife of working with data in Python; provides us with tools to get data into a nice, tidy format for analysis
+
+
 ```python
-%matplotlib inline
 import requests
 from bs4 import BeautifulSoup
 import re
 import pandas as pd
 
 
-plt.rcParams['figure.dpi'] = 300
 BASE_URL = 'http://racing-reference.info'
 ```
+
+Racing Reference uses a RESTful url scheme for accessing various pages.  The raceyear endpoint contains high level results of all the races in a given year.  For instance, we can receive a page with results for all races in 1979 at this url:
+
+    http://racing-reference.info/raceyear/1979/W
+
+'W', I believe, stands for Winston Cup, the long-time name of the top level of NASCAR competition.  In addition to the date, site, winner, and other race details, the raceyear page contains links to the full details of each race.  We'll need these links later.
+
+First, we'll request each raceyear from 1979 to present (2018); the NASCAR "modern era"
 
 
 ```python
@@ -25,7 +44,7 @@ years = range(1979, 2019)
 cup_results = [requests.get(BASE_URL + f'/raceyear/{year}/W') for year in years]
 ```
 
-Check response codes
+Checking HTTP status codes of our responses to make sure all our requests were successful
 
 
 ```python
@@ -39,7 +58,11 @@ set([r.status_code for r in cup_results])
 
 
 
-Each of these yearly cup series results pages has links to race details.  Lets find them all
+Each of these yearly cup series results pages has links to race details.  Race detail pages have url's like this:
+
+    http://racing-reference.info/race/1979_Winston_Western_500/W
+
+The yearly results pages have HTML `<a>` tags with relative links.  Lets find them all
 
 
 ```python
@@ -66,12 +89,14 @@ race_anchors[:5]
 
 
 
-For all of the extracted anchor tags, use the href attribute to request the race pages
+We can now use the href attribute of these `<a>` tags to build a full url to request the race detail pages
 
 
 ```python
 races = [requests.get(BASE_URL + a.attrs['href']) for a in race_anchors]
 ```
+
+Again, checking the status codes.  All 200s is what we're after
 
 
 ```python
@@ -87,7 +112,7 @@ set([r.status_code for r in races])
 
 ## Extracting Race Results
 
-To extract the race results stored as an html table, we can use the Pandas read_html function.
+To extract the race results stored as an HTML table, we can use the Pandas read_html function.
 
 Given the text of the page, read_html will return a list of dataframes from all tables found.  We can filter by using the match argument to find tables containing the provided string or regex
 
@@ -295,7 +320,9 @@ race_id_match[1], race_id_match[2]
 
 
 
-It would also be useful to extract the name of the track
+It would also be useful to extract the name of the track.  We'll again use a regex to find the url pattern of Racing Reference track pages like:
+
+    http://racing-reference.info/tracks/Riverside_International_Raceway
 
 
 ```python
@@ -693,7 +720,10 @@ def track_type(row):
 
 ```python
 df['track_type'] = df.apply(track_type, axis=1)
-df[['track_length_miles', 'track_type', 'track_name']].drop_duplicates().sort_values('track_length_miles')
+df[['track_length_miles', 'track_type', 'track_name']].drop_duplicates()\
+                                                      .sort_values('track_length_miles')\
+                                                      .reset_index()\
+                                                      .drop('index', axis=1)
 ```
 
 
@@ -724,319 +754,319 @@ df[['track_length_miles', 'track_type', 'track_name']].drop_duplicates().sort_va
   </thead>
   <tbody>
     <tr>
-      <th>277</th>
+      <th>0</th>
       <td>0.525</td>
       <td>short track</td>
       <td>Martinsville Speedway</td>
     </tr>
     <tr>
-      <th>5698</th>
+      <th>1</th>
       <td>0.526</td>
       <td>short track</td>
       <td>Martinsville Speedway</td>
     </tr>
     <tr>
-      <th>16744</th>
+      <th>2</th>
       <td>0.533</td>
       <td>short track</td>
       <td>Bristol International Raceway</td>
     </tr>
     <tr>
-      <th>19259</th>
+      <th>3</th>
       <td>0.533</td>
       <td>short track</td>
       <td>Bristol Motor Speedway</td>
     </tr>
     <tr>
-      <th>211</th>
+      <th>4</th>
       <td>0.533</td>
       <td>short track</td>
       <td>Bristol International Speedway</td>
     </tr>
     <tr>
-      <th>111</th>
+      <th>5</th>
       <td>0.542</td>
       <td>short track</td>
       <td>Richmond Fairgrounds Raceway</td>
     </tr>
     <tr>
-      <th>347</th>
+      <th>6</th>
       <td>0.596</td>
       <td>short track</td>
       <td>Nashville Speedway</td>
     </tr>
     <tr>
-      <th>181</th>
+      <th>7</th>
       <td>0.625</td>
       <td>short track</td>
       <td>North Wilkesboro Speedway</td>
     </tr>
     <tr>
-      <th>51649</th>
+      <th>8</th>
       <td>0.750</td>
       <td>short track</td>
       <td>Richmond Raceway</td>
     </tr>
     <tr>
-      <th>10617</th>
+      <th>9</th>
       <td>0.750</td>
       <td>short track</td>
       <td>Richmond International Raceway</td>
     </tr>
     <tr>
-      <th>49150</th>
+      <th>10</th>
       <td>1.000</td>
       <td>intermediate</td>
       <td>Jeff Gordon Raceway</td>
     </tr>
     <tr>
-      <th>28081</th>
+      <th>11</th>
       <td>1.000</td>
       <td>intermediate</td>
       <td>Dover International Speedway</td>
     </tr>
     <tr>
-      <th>10839</th>
+      <th>12</th>
       <td>1.000</td>
       <td>intermediate</td>
       <td>Phoenix International Raceway</td>
     </tr>
     <tr>
-      <th>52199</th>
+      <th>13</th>
       <td>1.000</td>
       <td>intermediate</td>
       <td>ISM Raceway</td>
     </tr>
     <tr>
-      <th>375</th>
+      <th>14</th>
       <td>1.000</td>
       <td>intermediate</td>
       <td>Dover Downs International Speedway</td>
     </tr>
     <tr>
-      <th>76</th>
+      <th>15</th>
       <td>1.017</td>
       <td>intermediate</td>
       <td>North Carolina Motor Speedway</td>
     </tr>
     <tr>
-      <th>21718</th>
+      <th>16</th>
       <td>1.017</td>
       <td>intermediate</td>
       <td>North Carolina Speedway</td>
     </tr>
     <tr>
-      <th>37541</th>
+      <th>17</th>
       <td>1.058</td>
       <td>intermediate</td>
       <td>New Hampshire Motor Speedway</td>
     </tr>
     <tr>
-      <th>15956</th>
+      <th>18</th>
       <td>1.058</td>
       <td>intermediate</td>
       <td>New Hampshire International Speedway</td>
     </tr>
     <tr>
-      <th>241</th>
+      <th>19</th>
       <td>1.366</td>
       <td>intermediate</td>
       <td>Darlington Raceway</td>
     </tr>
     <tr>
-      <th>42228</th>
+      <th>20</th>
       <td>1.500</td>
       <td>intermediate</td>
       <td>Kentucky Speedway</td>
     </tr>
     <tr>
-      <th>23567</th>
+      <th>21</th>
       <td>1.500</td>
       <td>intermediate</td>
       <td>Lowe's Motor Speedway</td>
     </tr>
     <tr>
-      <th>27179</th>
+      <th>22</th>
       <td>1.500</td>
       <td>intermediate</td>
       <td>Kansas Speedway</td>
     </tr>
     <tr>
-      <th>21761</th>
+      <th>23</th>
       <td>1.500</td>
       <td>intermediate</td>
       <td>Las Vegas Motor Speedway</td>
     </tr>
     <tr>
-      <th>26749</th>
+      <th>24</th>
       <td>1.500</td>
       <td>intermediate</td>
       <td>Chicagoland Speedway</td>
     </tr>
     <tr>
-      <th>20526</th>
+      <th>25</th>
       <td>1.500</td>
       <td>intermediate</td>
       <td>Texas Motor Speedway</td>
     </tr>
     <tr>
-      <th>406</th>
+      <th>26</th>
       <td>1.500</td>
       <td>intermediate</td>
       <td>Charlotte Motor Speedway</td>
     </tr>
     <tr>
-      <th>24470</th>
+      <th>27</th>
       <td>1.500</td>
       <td>intermediate</td>
       <td>Homestead-Miami Speedway</td>
     </tr>
     <tr>
-      <th>141</th>
+      <th>28</th>
       <td>1.522</td>
       <td>intermediate</td>
       <td>Atlanta International Raceway</td>
     </tr>
     <tr>
-      <th>13113</th>
+      <th>29</th>
       <td>1.522</td>
       <td>intermediate</td>
       <td>Atlanta Motor Speedway</td>
     </tr>
     <tr>
-      <th>21632</th>
+      <th>30</th>
       <td>1.540</td>
       <td>intermediate</td>
       <td>Atlanta Motor Speedway</td>
     </tr>
     <tr>
-      <th>22320</th>
+      <th>31</th>
       <td>1.949</td>
       <td>road course</td>
       <td>Sears Point Raceway</td>
     </tr>
     <tr>
-      <th>28210</th>
+      <th>32</th>
       <td>1.990</td>
       <td>road course</td>
       <td>Infineon Raceway</td>
     </tr>
     <tr>
-      <th>43690</th>
+      <th>33</th>
       <td>1.990</td>
       <td>road course</td>
       <td>Sonoma Raceway</td>
     </tr>
     <tr>
-      <th>25201</th>
+      <th>34</th>
       <td>1.990</td>
       <td>road course</td>
       <td>Sears Point Raceway</td>
     </tr>
     <tr>
-      <th>26663</th>
+      <th>35</th>
       <td>2.000</td>
       <td>road course</td>
       <td>Sears Point Raceway</td>
     </tr>
     <tr>
-      <th>36896</th>
+      <th>36</th>
       <td>2.000</td>
       <td>superspeedway</td>
       <td>Auto Club Speedway</td>
     </tr>
     <tr>
-      <th>516</th>
+      <th>37</th>
       <td>2.000</td>
       <td>superspeedway</td>
       <td>Michigan International Speedway</td>
     </tr>
     <tr>
-      <th>20911</th>
+      <th>38</th>
       <td>2.000</td>
       <td>superspeedway</td>
       <td>California Speedway</td>
     </tr>
     <tr>
-      <th>19582</th>
+      <th>39</th>
       <td>2.000</td>
       <td>superspeedway</td>
       <td>Michigan Speedway</td>
     </tr>
     <tr>
-      <th>447</th>
+      <th>40</th>
       <td>2.000</td>
       <td>superspeedway</td>
       <td>Texas World Speedway</td>
     </tr>
     <tr>
-      <th>8249</th>
+      <th>41</th>
       <td>2.428</td>
       <td>road course</td>
       <td>Watkins Glen International</td>
     </tr>
     <tr>
-      <th>14925</th>
+      <th>42</th>
       <td>2.450</td>
       <td>road course</td>
       <td>Watkins Glen International</td>
     </tr>
     <tr>
-      <th>19541</th>
+      <th>43</th>
       <td>2.500</td>
       <td>superspeedway</td>
       <td>Pocono Raceway</td>
     </tr>
     <tr>
-      <th>17276</th>
+      <th>44</th>
       <td>2.500</td>
       <td>superspeedway</td>
       <td>Indianapolis Motor Speedway</td>
     </tr>
     <tr>
-      <th>1048</th>
+      <th>45</th>
       <td>2.500</td>
       <td>superspeedway</td>
       <td>Ontario Motor Speedway</td>
     </tr>
     <tr>
-      <th>623</th>
+      <th>46</th>
       <td>2.500</td>
       <td>superspeedway</td>
       <td>Pocono International Raceway</td>
     </tr>
     <tr>
-      <th>35</th>
+      <th>47</th>
       <td>2.500</td>
       <td>superspeedway</td>
       <td>Daytona International Speedway</td>
     </tr>
     <tr>
-      <th>16895</th>
+      <th>48</th>
       <td>2.520</td>
       <td>road course</td>
       <td>Sears Point Raceway</td>
     </tr>
     <tr>
-      <th>11341</th>
+      <th>49</th>
       <td>2.520</td>
       <td>road course</td>
       <td>Sears Point International Raceway</td>
     </tr>
     <tr>
-      <th>0</th>
+      <th>50</th>
       <td>2.620</td>
       <td>road course</td>
       <td>Riverside International Raceway</td>
     </tr>
     <tr>
-      <th>11223</th>
+      <th>51</th>
       <td>2.660</td>
       <td>superspeedway</td>
       <td>Talladega Superspeedway</td>
     </tr>
     <tr>
-      <th>307</th>
+      <th>52</th>
       <td>2.660</td>
       <td>superspeedway</td>
       <td>Alabama International Motor Speedway</td>
@@ -1047,35 +1077,12 @@ df[['track_length_miles', 'track_type', 'track_name']].drop_duplicates().sort_va
 
 
 
-## Percent Laps Led
-
-Lets focus on making some calculations on percentage of laps led.
-
-The race_length_laps column in our dataframe represents the scheduled number of laps in the race.  The Laps column represents the number of laps completed by each car.  Due to weather, darkness, or overtime finishes, races can finish at a number of laps different than the scheduled amount.  Lets broadcast the actual race length to all cars
+## Wrapping Up
+We now have single, tidy Pandas DataFrame with all Monster Energy NASCAR Cup Series results since 1979
 
 
 ```python
-df_race_length = df.groupby(['year', 'race_name'])['Laps'].max()
-df_race_length.head()
-```
-
-
-
-
-    year  race_name              
-    1979  American_500               492
-          Atlanta_500                328
-          Busch_Nashville_420        420
-          CRC_Chemicals_500          500
-          CRC_Chemicals_Rebel_500    367
-    Name: Laps, dtype: int64
-
-
-
-
-```python
-df = df.join(df_race_length, on=['year', 'race_name'], rsuffix='_total')
-df[(df.year == 2017) & (df.race_name == 'Brickyard_400')][['#', 'Driver', 'race_length_laps', 'Laps', 'Laps_total']]
+df.tail()
 ```
 
 
@@ -1100,409 +1107,136 @@ df[(df.year == 2017) & (df.race_name == 'Brickyard_400')][['#', 'Driver', 'race_
     <tr style="text-align: right;">
       <th></th>
       <th>#</th>
+      <th>Car</th>
       <th>Driver</th>
-      <th>race_length_laps</th>
+      <th>Fin</th>
       <th>Laps</th>
-      <th>Laps_total</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <th>51415</th>
-      <td>5</td>
-      <td>Kasey Kahne</td>
-      <td>160</td>
-      <td>167</td>
-      <td>167</td>
-    </tr>
-    <tr>
-      <th>51416</th>
-      <td>2</td>
-      <td>Brad Keselowski</td>
-      <td>160</td>
-      <td>167</td>
-      <td>167</td>
-    </tr>
-    <tr>
-      <th>51417</th>
-      <td>31</td>
-      <td>Ryan Newman</td>
-      <td>160</td>
-      <td>167</td>
-      <td>167</td>
-    </tr>
-    <tr>
-      <th>51418</th>
-      <td>22</td>
-      <td>Joey Logano</td>
-      <td>160</td>
-      <td>167</td>
-      <td>167</td>
-    </tr>
-    <tr>
-      <th>51419</th>
-      <td>20</td>
-      <td>Matt Kenseth</td>
-      <td>160</td>
-      <td>167</td>
-      <td>167</td>
-    </tr>
-    <tr>
-      <th>51420</th>
-      <td>4</td>
-      <td>Kevin Harvick</td>
-      <td>160</td>
-      <td>167</td>
-      <td>167</td>
-    </tr>
-    <tr>
-      <th>51421</th>
-      <td>19</td>
-      <td>Daniel Suarez</td>
-      <td>160</td>
-      <td>167</td>
-      <td>167</td>
-    </tr>
-    <tr>
-      <th>51422</th>
-      <td>32</td>
-      <td>Matt DiBenedetto</td>
-      <td>160</td>
-      <td>167</td>
-      <td>167</td>
-    </tr>
-    <tr>
-      <th>51423</th>
-      <td>37</td>
-      <td>Chris Buescher</td>
-      <td>160</td>
-      <td>167</td>
-      <td>167</td>
-    </tr>
-    <tr>
-      <th>51424</th>
-      <td>47</td>
-      <td>A.J. Allmendinger</td>
-      <td>160</td>
-      <td>167</td>
-      <td>167</td>
-    </tr>
-    <tr>
-      <th>51425</th>
-      <td>10</td>
-      <td>Danica Patrick</td>
-      <td>160</td>
-      <td>167</td>
-      <td>167</td>
-    </tr>
-    <tr>
-      <th>51426</th>
-      <td>72</td>
-      <td>Cole Whitt</td>
-      <td>160</td>
-      <td>167</td>
-      <td>167</td>
-    </tr>
-    <tr>
-      <th>51427</th>
-      <td>43</td>
-      <td>Aric Almirola</td>
-      <td>160</td>
-      <td>167</td>
-      <td>167</td>
-    </tr>
-    <tr>
-      <th>51428</th>
-      <td>66</td>
-      <td>Timmy Hill</td>
-      <td>160</td>
-      <td>167</td>
-      <td>167</td>
-    </tr>
-    <tr>
-      <th>51429</th>
-      <td>1</td>
-      <td>Jamie McMurray</td>
-      <td>160</td>
-      <td>167</td>
-      <td>167</td>
-    </tr>
-    <tr>
-      <th>51430</th>
-      <td>27</td>
-      <td>Paul Menard</td>
-      <td>160</td>
-      <td>167</td>
-      <td>167</td>
-    </tr>
-    <tr>
-      <th>51431</th>
-      <td>11</td>
-      <td>Denny Hamlin</td>
-      <td>160</td>
-      <td>166</td>
-      <td>167</td>
-    </tr>
-    <tr>
-      <th>51432</th>
-      <td>95</td>
-      <td>Michael McDowell</td>
-      <td>160</td>
-      <td>166</td>
-      <td>167</td>
-    </tr>
-    <tr>
-      <th>51433</th>
-      <td>13</td>
-      <td>Ty Dillon</td>
-      <td>160</td>
-      <td>165</td>
-      <td>167</td>
-    </tr>
-    <tr>
-      <th>51434</th>
-      <td>6</td>
-      <td>Trevor Bayne</td>
-      <td>160</td>
-      <td>162</td>
-      <td>167</td>
-    </tr>
-    <tr>
-      <th>51435</th>
-      <td>3</td>
-      <td>Austin Dillon</td>
-      <td>160</td>
-      <td>162</td>
-      <td>167</td>
-    </tr>
-    <tr>
-      <th>51436</th>
-      <td>34</td>
-      <td>Landon Cassill</td>
-      <td>160</td>
-      <td>162</td>
-      <td>167</td>
-    </tr>
-    <tr>
-      <th>51437</th>
-      <td>21</td>
-      <td>Ryan Blaney</td>
-      <td>160</td>
-      <td>162</td>
-      <td>167</td>
-    </tr>
-    <tr>
-      <th>51438</th>
-      <td>55</td>
-      <td>Gray Gaulding</td>
-      <td>160</td>
-      <td>162</td>
-      <td>167</td>
-    </tr>
-    <tr>
-      <th>51439</th>
-      <td>15</td>
-      <td>Joey Gase</td>
-      <td>160</td>
-      <td>162</td>
-      <td>167</td>
-    </tr>
-    <tr>
-      <th>51440</th>
-      <td>33</td>
-      <td>Jeffrey Earnhardt</td>
-      <td>160</td>
-      <td>162</td>
-      <td>167</td>
-    </tr>
-    <tr>
-      <th>51441</th>
-      <td>48</td>
-      <td>Jimmie Johnson</td>
-      <td>160</td>
-      <td>158</td>
-      <td>167</td>
-    </tr>
-    <tr>
-      <th>51442</th>
-      <td>42</td>
-      <td>Kyle Larson</td>
-      <td>160</td>
-      <td>154</td>
-      <td>167</td>
-    </tr>
-    <tr>
-      <th>51443</th>
-      <td>41</td>
-      <td>Kurt Busch</td>
-      <td>160</td>
-      <td>149</td>
-      <td>167</td>
-    </tr>
-    <tr>
-      <th>51444</th>
-      <td>14</td>
-      <td>Clint Bowyer</td>
-      <td>160</td>
-      <td>148</td>
-      <td>167</td>
-    </tr>
-    <tr>
-      <th>51445</th>
-      <td>77</td>
-      <td>Erik Jones</td>
-      <td>160</td>
-      <td>148</td>
-      <td>167</td>
-    </tr>
-    <tr>
-      <th>51446</th>
-      <td>51</td>
-      <td>B.J. McLeod</td>
-      <td>160</td>
-      <td>135</td>
-      <td>167</td>
-    </tr>
-    <tr>
-      <th>51447</th>
-      <td>78</td>
-      <td>Martin Truex, Jr.</td>
-      <td>160</td>
-      <td>110</td>
-      <td>167</td>
-    </tr>
-    <tr>
-      <th>51448</th>
-      <td>18</td>
-      <td>Kyle Busch</td>
-      <td>160</td>
-      <td>110</td>
-      <td>167</td>
-    </tr>
-    <tr>
-      <th>51449</th>
-      <td>17</td>
-      <td>Ricky Stenhouse, Jr.</td>
-      <td>160</td>
-      <td>106</td>
-      <td>167</td>
-    </tr>
-    <tr>
-      <th>51450</th>
-      <td>88</td>
-      <td>Dale Earnhardt, Jr.</td>
-      <td>160</td>
-      <td>76</td>
-      <td>167</td>
-    </tr>
-    <tr>
-      <th>51451</th>
-      <td>7</td>
-      <td>J.J. Yeley</td>
-      <td>160</td>
-      <td>70</td>
-      <td>167</td>
-    </tr>
-    <tr>
-      <th>51452</th>
-      <td>38</td>
-      <td>David Ragan</td>
-      <td>160</td>
-      <td>56</td>
-      <td>167</td>
-    </tr>
-    <tr>
-      <th>51453</th>
-      <td>24</td>
-      <td>Chase Elliott</td>
-      <td>160</td>
-      <td>43</td>
-      <td>167</td>
-    </tr>
-    <tr>
-      <th>51454</th>
-      <td>23</td>
-      <td>Corey LaJoie</td>
-      <td>160</td>
-      <td>9</td>
-      <td>167</td>
-    </tr>
-  </tbody>
-</table>
-</div>
-
-
-
-Now we can calculate the percentage of the race led
-
-
-```python
-df['pct_led'] = df['Led'] / df['Laps_total']
-df[['#', 'Led', 'Laps_total', 'pct_led']].head()
-```
-
-
-
-
-<div class="dataframe-container">
-<style scoped>
-    .dataframe tbody tr th:only-of-type {
-        vertical-align: middle;
-    }
-
-    .dataframe tbody tr th {
-        vertical-align: top;
-    }
-
-    .dataframe thead th {
-        text-align: right;
-    }
-</style>
-<table border="1" class="dataframe">
-  <thead>
-    <tr style="text-align: right;">
-      <th></th>
-      <th>#</th>
       <th>Led</th>
-      <th>Laps_total</th>
-      <th>pct_led</th>
+      <th>Money</th>
+      <th>PPts</th>
+      <th>Pts</th>
+      <th>Sponsor / Owner</th>
+      <th>St</th>
+      <th>Status</th>
+      <th>race_length_laps</th>
+      <th>race_length_miles</th>
+      <th>race_name</th>
+      <th>track_length_miles</th>
+      <th>track_name</th>
+      <th>track_type</th>
+      <th>year</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <th>0</th>
-      <td>88</td>
-      <td>87</td>
-      <td>119</td>
-      <td>0.731092</td>
+      <th>52614</th>
+      <td>99</td>
+      <td>Chevrolet</td>
+      <td>Derrike Cope</td>
+      <td>34</td>
+      <td>152</td>
+      <td>0</td>
+      <td>NaN</td>
+      <td>0.0</td>
+      <td>3.0</td>
+      <td>StarCom Fiber (StarCom Racing)</td>
+      <td>38</td>
+      <td>running</td>
+      <td>160</td>
+      <td>400.0</td>
+      <td>Pocono_400</td>
+      <td>2.5</td>
+      <td>Pocono Raceway</td>
+      <td>superspeedway</td>
+      <td>2018</td>
     </tr>
     <tr>
-      <th>1</th>
-      <td>21</td>
-      <td>9</td>
-      <td>119</td>
-      <td>0.075630</td>
-    </tr>
-    <tr>
-      <th>2</th>
+      <th>52615</th>
       <td>11</td>
-      <td>3</td>
-      <td>119</td>
-      <td>0.025210</td>
+      <td>Toyota</td>
+      <td>Denny Hamlin</td>
+      <td>35</td>
+      <td>146</td>
+      <td>0</td>
+      <td>NaN</td>
+      <td>0.0</td>
+      <td>8.0</td>
+      <td>FedEx Office (Joe Gibbs)</td>
+      <td>10</td>
+      <td>crash</td>
+      <td>160</td>
+      <td>400.0</td>
+      <td>Pocono_400</td>
+      <td>2.5</td>
+      <td>Pocono Raceway</td>
+      <td>superspeedway</td>
+      <td>2018</td>
     </tr>
     <tr>
-      <th>3</th>
-      <td>73</td>
+      <th>52616</th>
+      <td>95</td>
+      <td>Chevrolet</td>
+      <td>Kasey Kahne</td>
+      <td>36</td>
+      <td>120</td>
       <td>0</td>
-      <td>119</td>
-      <td>0.000000</td>
+      <td>NaN</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>FDNY Foundation (Leavine Family Racing)</td>
+      <td>22</td>
+      <td>transmission</td>
+      <td>160</td>
+      <td>400.0</td>
+      <td>Pocono_400</td>
+      <td>2.5</td>
+      <td>Pocono Raceway</td>
+      <td>superspeedway</td>
+      <td>2018</td>
     </tr>
     <tr>
-      <th>4</th>
-      <td>1</td>
+      <th>52617</th>
+      <td>32</td>
+      <td>Ford</td>
+      <td>Matt DiBenedetto</td>
+      <td>37</td>
+      <td>113</td>
       <td>0</td>
-      <td>119</td>
-      <td>0.000000</td>
+      <td>NaN</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>Zynga Poker (Archie St. Hilaire)</td>
+      <td>32</td>
+      <td>brakes</td>
+      <td>160</td>
+      <td>400.0</td>
+      <td>Pocono_400</td>
+      <td>2.5</td>
+      <td>Pocono Raceway</td>
+      <td>superspeedway</td>
+      <td>2018</td>
+    </tr>
+    <tr>
+      <th>52618</th>
+      <td>43</td>
+      <td>Chevrolet</td>
+      <td>Bubba Wallace</td>
+      <td>38</td>
+      <td>108</td>
+      <td>4</td>
+      <td>NaN</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>Weis Markets (Richard Petty Motorsports)</td>
+      <td>19</td>
+      <td>engine</td>
+      <td>160</td>
+      <td>400.0</td>
+      <td>Pocono_400</td>
+      <td>2.5</td>
+      <td>Pocono Raceway</td>
+      <td>superspeedway</td>
+      <td>2018</td>
     </tr>
   </tbody>
 </table>
@@ -1510,32 +1244,9 @@ df[['#', 'Led', 'Laps_total', 'pct_led']].head()
 
 
 
-By filtering the dataframe for only winners, we can calculate the percentage of total laps led by all the winners in a given year
+In future posts, I'll revisit this data for further analysis.  For now, I'll save the DataFrame as a Python pickle file for easy ingestion
 
 
 ```python
-df_winners = df[df['Fin'] == 1].copy()
-df_pct_led_overall = df_winners.groupby('year').apply(lambda x: pd.Series({'pct_led_overall': x['Led'].sum() / x['Laps_total'].sum()}))
+df.to_pickle('race_details.pkl')
 ```
-
-Now we can plot both the race percentages and the yearly percentage on the same plot
-
-
-```python
-ax = df_winners.plot(x='year',
-                     y='pct_led',
-                     kind='scatter',
-                     title='MENCS Modern Era Percent Laps Led by the Winner',
-                     figsize=(16, 9),
-                     c='white',
-                     marker='.')
-df_pct_led_overall.reset_index().plot('year', 'pct_led_overall', ax=ax, c='#7dbe32', lw=2.5)
-ax.set_facecolor("black")
-ax.text(0.95, 0.01, '©jasondamiani.com',
-        verticalalignment='bottom', horizontalalignment='right',
-        transform=ax.transAxes,
-        color='white', fontsize=8);
-```
-
-
-![png](/images/output_43_0.png)
